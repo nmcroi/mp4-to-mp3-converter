@@ -1,4 +1,8 @@
 import streamlit as st
+
+# BELANGRIJK: Dit moet altijd als eerste Streamlit commando staan!
+st.set_page_config(page_title="MP4 naar MP3 Converter", layout="centered")
+
 import tempfile
 import os
 import datetime
@@ -61,8 +65,7 @@ def opslaan_geschiedenis(bestandsnaam, kwaliteit):
     if len(st.session_state.conversie_geschiedenis) > 10:
         st.session_state.conversie_geschiedenis.pop(0)
 
-# App configuratie
-st.set_page_config(page_title="MP4 naar MP3 Converter", layout="centered")
+# App titel en beschrijving
 st.title("MP4 naar MP3 Converter")
 st.write("Upload een MP4-bestand en download het geëxtraheerde MP3-audiobestand.")
 
