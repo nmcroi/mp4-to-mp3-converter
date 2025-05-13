@@ -9,42 +9,25 @@ import warnings
 
 # Fix voor ontbrekend moviepy.editor module
 try:
+    # Probeer normale import
     from moviepy.editor import VideoFileClip
 except (ImportError, ModuleNotFoundError):
-    # Als moviepy.editor niet bestaat, maken we het zelf aan
-    import moviepy
-    import importlib
-    
-    # Controleer of moviepy wel geïmporteerd kan worden
-    if importlib.util.find_spec("moviepy") is not None:
-        # Maak een lijst van benodigde modules
-        modules_to_import = {
-            "VideoFileClip": "moviepy.video.io.VideoFileClip",
-            "VideoClip": "moviepy.video.VideoClip",
-            "ImageClip": "moviepy.video.VideoClip",
-            "CompositeVideoClip": "moviepy.video.compositing.CompositeVideoClip",
-            "AudioClip": "moviepy.audio.AudioClip",
-            "AudioFileClip": "moviepy.audio.io.AudioFileClip",
-            "Clip": "moviepy.Clip"
-        }
+    # Als moviepy.editor niet bestaat, importeren we klassen direct
+    try:
+        st.info("De normale moviepy.editor module ontbreekt. Direct importeren van benodigde klassen...")
         
-        # Maak zelf een editor module
-        editor_module = type(sys)("moviepy.editor")
-        sys.modules["moviepy.editor"] = editor_module
+        # Direct de benodigde klassen importeren zonder tussenlaag
+        from moviepy.video.io.VideoFileClip import VideoFileClip
+        from moviepy.audio.AudioClip import AudioClip
+        from moviepy.audio.io.AudioFileClip import AudioFileClip
         
-        # Importeer elke benodigde class en voeg toe aan editor module
-        for name, path in modules_to_import.items():
-            try:
-                module_path, class_name = path.rsplit(".", 1)
-                module = importlib.import_module(module_path)
-                setattr(editor_module, name, getattr(module, class_name))
-            except (ImportError, AttributeError) as e:
-                st.error(f"Kon {name} niet importeren van {path}: {e}")
-        
-        # Importeer VideoFileClip uit onze nieuwe module
-        from moviepy.editor import VideoFileClip
-        
-        warnings.warn("Gebruikt automatisch gegenereerde moviepy.editor module", ImportWarning)
+        # Toon succes melding
+        st.success("Directe import succesvol! De app zou nu moeten werken.")
+    except Exception as e:
+        st.error(f"Fout bij importeren: {str(e)}")
+        st.info("Probeer de app lokaal te draaien of neem contact op met de ontwikkelaar.")
+        # Fallback optie - toon gebruiksvriendelijke foutmelding
+        raise ImportError(f"Kon de benodigde moviepy modules niet importeren: {str(e)}")
 
 # Sessie state voor conversiegeschiedenis
 if 'conversie_geschiedenis' not in st.session_state:
