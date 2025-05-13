@@ -3,7 +3,48 @@ import tempfile
 import os
 import datetime
 import json
-from moviepy.editor import VideoFileClip
+import sys
+import importlib.util
+import warnings
+
+# Fix voor ontbrekend moviepy.editor module
+try:
+    from moviepy.editor import VideoFileClip
+except (ImportError, ModuleNotFoundError):
+    # Als moviepy.editor niet bestaat, maken we het zelf aan
+    import moviepy
+    import importlib
+    
+    # Controleer of moviepy wel geïmporteerd kan worden
+    if importlib.util.find_spec("moviepy") is not None:
+        # Maak een lijst van benodigde modules
+        modules_to_import = {
+            "VideoFileClip": "moviepy.video.io.VideoFileClip",
+            "VideoClip": "moviepy.video.VideoClip",
+            "ImageClip": "moviepy.video.VideoClip",
+            "CompositeVideoClip": "moviepy.video.compositing.CompositeVideoClip",
+            "AudioClip": "moviepy.audio.AudioClip",
+            "AudioFileClip": "moviepy.audio.io.AudioFileClip",
+            "Clip": "moviepy.Clip"
+        }
+        
+        # Maak zelf een editor module
+        editor_module = type(sys)("moviepy.editor")
+        sys.modules["moviepy.editor"] = editor_module
+        
+        # Importeer elke benodigde class en voeg toe aan editor module
+        for name, path in modules_to_import.items():
+            try:
+                module_path, class_name = path.rsplit(".", 1)
+                module = importlib.import_module(module_path)
+                setattr(editor_module, name, getattr(module, class_name))
+            except (ImportError, AttributeError) as e:
+                st.error(f"Kon {name} niet importeren van {path}: {e}")
+        
+        # Importeer VideoFileClip uit onze nieuwe module
+        from moviepy.editor import VideoFileClip
+        
+        warnings.warn("Gebruikt automatisch gegenereerde moviepy.editor module", ImportWarning)
 
 # Sessie state voor conversiegeschiedenis
 if 'conversie_geschiedenis' not in st.session_state:
