@@ -3,61 +3,45 @@ import tempfile
 import os
 import datetime
 import json
-import subprocess
-import shutil
+import io
 
-# Controleer of ffmpeg beschikbaar is
-def has_ffmpeg():
+# Functie om MP4 naar MP3 te converteren met pure Python
+def convert_mp4_to_mp3(input_file, output_file, bitrate=192000):
     try:
-        # Controleer of ffmpeg geïnstalleerd is
-        ffmpeg_version = subprocess.check_output(['ffmpeg', '-version'], stderr=subprocess.STDOUT)
+        # We gebruiken Python's ingebouwde bibliotheken om met audiobestanden te werken
+        import wave
+        from pydub import AudioSegment
+        
+        # Laad MP4-bestand
+        st.info("MP4-bestand laden...")
+        audio = AudioSegment.from_file(input_file, format="mp4")
+        
+        # Stel de audiokwaliteit (bitrate) in
+        st.info("Audio-instellingen toepassen...")
+        
+        # Exporteren als MP3
+        st.info("Exporteren naar MP3...")
+        audio.export(output_file, format="mp3", bitrate=f"{int(bitrate/1000)}k")
+        
         return True
-    except (subprocess.SubprocessError, FileNotFoundError):
+    except ImportError:
+        st.error("Pydub is niet geïnstalleerd. We installeren het nu...")
+        import sys
+        import subprocess
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "pydub"])
+            st.success("Pydub succesvol geïnstalleerd! Probeer opnieuw.")
+            # Probeer opnieuw na installatie
+            from pydub import AudioSegment
+            audio = AudioSegment.from_file(input_file, format="mp4")
+            audio.export(output_file, format="mp3", bitrate=f"{int(bitrate/1000)}k")
+            return True
+        except Exception as e:
+            st.error(f"Kon pydub niet installeren: {str(e)}")
+            return False
+    except Exception as e:
+        st.error(f"Fout bij conversie: {str(e)}")
         return False
-
-# Functie om MP4 naar MP3 te converteren met ffmpeg
-def convert_mp4_to_mp3(input_file, output_file, bitrate="192k"):
-    try:
-        cmd = [
-            'ffmpeg',
-            '-i', input_file,            # input file
-            '-vn',                       # verwijder video
-            '-acodec', 'libmp3lame',     # audio codec
-            '-ab', bitrate,              # audio bitrate
-            '-ar', '44100',              # audio sample rate
-            '-y',                        # overschrijf bestaand bestand
-            output_file                  # output file
-        ]
-        
-        # Voer de ffmpeg-opdracht uit
-        process = subprocess.Popen(
-            cmd, 
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE
-        )
-        
-        stdout, stderr = process.communicate()
-        
-        if process.returncode != 0:
-            error_message = stderr.decode('utf-8') if stderr else "Onbekende fout bij conversie"
-            raise Exception(f"FFMPEG fout (code {process.returncode}): {error_message}")
-        
-        return True
-    except Exception as e:
-        raise Exception(f"Conversie fout: {str(e)}")
-
-# Eerste run: installeer ffmpeg als het niet gevonden wordt
-if not has_ffmpeg():
-    st.warning("FFMPEG wordt geïnstalleerd...")
-    # Deze poging wordt alleen in de cloud gedaan en niet lokaal
-    try:
-        subprocess.check_call(["apt-get", "update"])
-        subprocess.check_call(["apt-get", "install", "-y", "ffmpeg"])
-        st.success("FFMPEG succesvol geïnstalleerd!")
-    except Exception as e:
-        st.error(f"Kon FFMPEG niet installeren: {str(e)}")
-        st.info("Gebruik de app lokaal of neem contact op met de ontwikkelaar")
-        st.stop()
 
 # Sessie state voor conversiegeschiedenis
 if 'conversie_geschiedenis' not in st.session_state:
