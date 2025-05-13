@@ -3,31 +3,61 @@ import tempfile
 import os
 import datetime
 import json
-import sys
-import importlib.util
-import warnings
+import subprocess
+import shutil
 
-# Fix voor ontbrekend moviepy.editor module
-try:
-    # Probeer normale import
-    from moviepy.editor import VideoFileClip
-except (ImportError, ModuleNotFoundError):
-    # Als moviepy.editor niet bestaat, importeren we klassen direct
+# Controleer of ffmpeg beschikbaar is
+def has_ffmpeg():
     try:
-        st.info("De normale moviepy.editor module ontbreekt. Direct importeren van benodigde klassen...")
+        # Controleer of ffmpeg geïnstalleerd is
+        ffmpeg_version = subprocess.check_output(['ffmpeg', '-version'], stderr=subprocess.STDOUT)
+        return True
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return False
+
+# Functie om MP4 naar MP3 te converteren met ffmpeg
+def convert_mp4_to_mp3(input_file, output_file, bitrate="192k"):
+    try:
+        cmd = [
+            'ffmpeg',
+            '-i', input_file,            # input file
+            '-vn',                       # verwijder video
+            '-acodec', 'libmp3lame',     # audio codec
+            '-ab', bitrate,              # audio bitrate
+            '-ar', '44100',              # audio sample rate
+            '-y',                        # overschrijf bestaand bestand
+            output_file                  # output file
+        ]
         
-        # Direct de benodigde klassen importeren zonder tussenlaag
-        from moviepy.video.io.VideoFileClip import VideoFileClip
-        from moviepy.audio.AudioClip import AudioClip
-        from moviepy.audio.io.AudioFileClip import AudioFileClip
+        # Voer de ffmpeg-opdracht uit
+        process = subprocess.Popen(
+            cmd, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE
+        )
         
-        # Toon succes melding
-        st.success("Directe import succesvol! De app zou nu moeten werken.")
+        stdout, stderr = process.communicate()
+        
+        if process.returncode != 0:
+            error_message = stderr.decode('utf-8') if stderr else "Onbekende fout bij conversie"
+            raise Exception(f"FFMPEG fout (code {process.returncode}): {error_message}")
+        
+        return True
     except Exception as e:
-        st.error(f"Fout bij importeren: {str(e)}")
-        st.info("Probeer de app lokaal te draaien of neem contact op met de ontwikkelaar.")
-        # Fallback optie - toon gebruiksvriendelijke foutmelding
-        raise ImportError(f"Kon de benodigde moviepy modules niet importeren: {str(e)}")
+        raise Exception(f"Conversie fout: {str(e)}")
+
+# Eerste run: installeer ffmpeg als het niet gevonden wordt
+if not has_ffmpeg():
+    st.warning("FFMPEG wordt geïnstalleerd...")
+    # Deze poging wordt alleen in de cloud gedaan en niet lokaal
+    try:
+        subprocess.check_call(["apt-get", "update"])
+        subprocess.check_call(["apt-get", "install", "-y", "ffmpeg"])
+        st.success("FFMPEG succesvol geïnstalleerd!")
+    except Exception as e:
+        st.error(f"Kon FFMPEG niet installeren: {str(e)}")
+        st.info("Gebruik de app lokaal of neem contact op met de ontwikkelaar")
+        st.stop()
 
 # Sessie state voor conversiegeschiedenis
 if 'conversie_geschiedenis' not in st.session_state:
@@ -101,11 +131,8 @@ if mp4_file is not None:
         # Toon laadstatus met spinner
         with st.spinner(f"Bezig met converteren naar {kwaliteit}kbps MP3... Dit kan even duren."):
             try:
-                # MP4 naar MP3 converteren met gekozen kwaliteit
-                video = VideoFileClip(tmp_mp4_path)
-                audio = video.audio
-                audio.write_audiofile(output_path, bitrate=f"{kwaliteit}k")
-                video.close()
+                # MP4 naar MP3 converteren met FFMPEG
+                convert_mp4_to_mp3(tmp_mp4_path, output_path, bitrate=f"{kwaliteit}k")
                 
                 # Sla conversie op in geschiedenis
                 opslaan_geschiedenis(output_filename, kwaliteit)
