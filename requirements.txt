@@ -1,0 +1,6 @@
+streamlit
+moviepy
+pillow
+pandas
+openpyxl
+xlrd
